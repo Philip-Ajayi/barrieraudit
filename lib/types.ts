@@ -1,0 +1,66 @@
+export type BarrierStatus = 'OPTIMAL' | 'STRESSED' | 'CRITICAL_BARRIER_COLLAPSE';
+
+export type HazardLevel = 'SAFE_HYDRATING' | 'MILD_ACTIVE' | 'POTENT_ACTIVE' | 'SEVERE_EXFOLIANT';
+
+export interface SkinTelemetry {
+  redness: number;    // 0 - 100
+  moisture: number;   // 0 - 100
+  texture: number;    // 0 - 100
+  acne: number;       // 0 - 100
+  skinAge?: number;
+  maskDataUrl?: string; // Erythema heatmap or binary mask overlay
+  rawPhotoUrl?: string;
+  timestamp: string;
+}
+
+export interface DetectedActive {
+  inciName: string;
+  category: 'AHA' | 'BHA' | 'RETINOID' | 'ASCORBIC_ACID' | 'BENZOYL_PEROXIDE' | 'PHYSICAL_SCRUB' | 'SOOTHING_LIPID';
+  hazardLevel: HazardLevel;
+  estimatedPh?: number;
+  contraindicatedInCollapse: boolean;
+  notes: string;
+}
+
+export interface ShelfProduct {
+  id: string;
+  name: string;
+  brand?: string;
+  rawText?: string;
+  detectedActives: DetectedActive[];
+  overallHazard: HazardLevel;
+  isQuarantined: boolean;
+  quarantineDaysRemaining: number;
+  scannedAt: string;
+}
+
+export interface BIRAnalysis {
+  birScore: number;
+  status: BarrierStatus;
+  primaryDiagnosis: 'ACTIVE_INDUCED_BARRIER_BREAKDOWN' | 'BACTERIAL_ACNE_VULGARIS' | 'HOMEOSTATIC_HEALTHY';
+  clinicalSummary: string;
+  recommendedQuarantineDays: number;
+  formulaEvidence: {
+    moistureVal: number;
+    rednessDenominator: number;
+    textureMultiplier: number;
+  };
+}
+
+export interface StepDownDay {
+  day: number;
+  phase: string;
+  amSteps: string[];
+  pmSteps: string[];
+  restrictedActives: string[];
+  rationale: string;
+}
+
+export interface CasePreset {
+  id: string;
+  title: string;
+  description: string;
+  photoUrl: string;
+  telemetry: SkinTelemetry;
+  sampleShelf: Omit<ShelfProduct, 'id' | 'scannedAt'>[];
+}
