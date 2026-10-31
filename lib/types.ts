@@ -8,9 +8,20 @@ export interface SkinTelemetry {
   texture: number;    // 0 - 100
   acne: number;       // 0 - 100
   skinAge?: number;
-  maskDataUrl?: string; // Erythema heatmap or binary mask overlay
+  maskUrls?: {
+    redness?: string;
+    moisture?: string;
+    texture?: string;
+    acne?: string;
+    overlay?: string;
+    composite?: string;
+    [key: string]: string | undefined;
+  };
+  maskDataUrl?: string; // Active spatial mask or overlay URL
   rawPhotoUrl?: string;
   timestamp: string;
+  isLiveProduction?: boolean;
+  taskId?: string;
 }
 
 export interface DetectedActive {
@@ -32,6 +43,7 @@ export interface ShelfProduct {
   isQuarantined: boolean;
   quarantineDaysRemaining: number;
   scannedAt: string;
+  source?: 'CAMERA_OCR' | 'UPLOAD_OCR' | 'MANUAL_INCI' | 'BENCHMARK_PRESET';
 }
 
 export interface BIRAnalysis {

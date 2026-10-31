@@ -4,13 +4,14 @@ import { getUserApiKey } from './storage';
 export interface AnalysisResponse {
   success: boolean;
   telemetry: SkinTelemetry;
-  source: 'YOUCAM_CLOUD_API' | 'LOCAL_CLINICAL_CV_FALLBACK';
+  source: 'YOUCAM_CLOUD_API';
+  taskId?: string;
   message?: string;
 }
 
 /**
  * Sends image data to /api/youcam-proxy.
- * If user has supplied their own API key via interface modal, it sends it in headers.
+ * Enforces production validation: returns genuine YouCam telemetry or throws genuine API error.
  */
 export async function analyzeSkinPhoto(imageDataUrl: string): Promise<AnalysisResponse> {
   const userKey = getUserApiKey();
@@ -19,18 +20,22 @@ export async function analyzeSkinPhoto(imageDataUrl: string): Promise<AnalysisRe
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(userKey ? { 'x-youcam-api-key': userKey } : {})
+      ...(userKey ? { 'x-youcam-api-key': userKey } : {}),
     },
     body: JSON.stringify({
       imageBase64: imageDataUrl,
-      actions: ['redness', 'moisture', 'texture', 'acne']
-    })
+      actions: ['redness', 'moisture', 'texture', 'acne'],
+    }),
   });
 
+  const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    throw new Error(errorBody.error || `Proxy responded with HTTP ${response.status}`);
+    const errorMsg = data.details
+      ? `${data.error}: ${typeof data.details === 'object' ? JSON.stringify(data.details) : data.details}`
+      : data.error || `YouCam API request failed with status ${response.status}`;
+    throw new Error(errorMsg);
   }
 
-  return await response.json();
+  return data;
 }

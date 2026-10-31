@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
-import { ShieldAlert, Cpu, Key, Trash2, HeartHandshake } from 'lucide-react';
+import { ShieldAlert, Cpu, Key, Trash2 } from 'lucide-react';
 import { getUserApiKey } from '@/lib/storage';
 
 interface NavbarProps {
   onOpenKeyModal: () => void;
   onClearData: () => void;
-  apiSource: 'YOUCAM_CLOUD_API' | 'LOCAL_CLINICAL_CV_FALLBACK';
+  apiSource: 'YOUCAM_CLOUD_API' | 'UNCONFIGURED';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -42,31 +42,25 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Controls */}
         <div className="flex items-center space-x-2 sm:space-x-3">
-          {/* API Status Pill */}
           <button
             onClick={onOpenKeyModal}
             className={`flex items-center space-x-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-all ${
               apiSource === 'YOUCAM_CLOUD_API' || hasCustomKey
                 ? 'border-emerald-500/50 bg-emerald-950/40 text-emerald-300'
-                : 'border-cyan-500/30 bg-cyan-950/30 text-cyan-300 hover:border-cyan-400'
+                : 'border-amber-500/40 bg-amber-950/30 text-amber-300 hover:border-amber-400'
             }`}
             title="Configure Perfect Corp YouCam Skin API Key"
           >
             <Cpu className="h-3.5 w-3.5" />
             <span className="hidden md:inline">
-              {apiSource === 'YOUCAM_CLOUD_API' ? 'YouCam API: Connected' : 'YouCam Engine: Ready'}
+              {apiSource === 'YOUCAM_CLOUD_API' || hasCustomKey
+                ? 'YouCam Production API: Connected'
+                : 'YouCam API Key Required'}
             </span>
-            <span className="md:hidden">YouCam</span>
-            <Key className="h-3 w-3 opacity-60" />
+            <span className="md:hidden">YouCam Key</span>
+            <Key className="h-3 w-3 opacity-70" />
           </button>
 
-          {/* Anti-consumption badge */}
-          <div className="hidden items-center space-x-1 rounded-lg border border-slate-700 bg-slate-900/80 px-2.5 py-1.5 text-xs text-slate-300 lg:flex">
-            <HeartHandshake className="h-3.5 w-3.5 text-pink-400" />
-            <span>Anti-Consumption Defender</span>
-          </div>
-
-          {/* Reset */}
           <button
             onClick={onClearData}
             title="Reset telemetry & inventory"

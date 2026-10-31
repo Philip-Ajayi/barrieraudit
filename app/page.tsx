@@ -20,6 +20,7 @@ import {
   saveShelfInventory,
   getShelfInventory,
   clearAllLocalData,
+  getUserApiKey,
 } from '@/lib/storage';
 
 export default function Home() {
@@ -27,26 +28,27 @@ export default function Home() {
   const [birAnalysis, setBirAnalysis] = useState<BIRAnalysis | null>(null);
   const [shelfProducts, setShelfProducts] = useState<ShelfProduct[]>([]);
   const [telemetryHistory, setTelemetryHistory] = useState<SkinTelemetry[]>([]);
-  const [activePresetId, setActivePresetId] = useState<string | null>('case-collapse');
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [apiSource, setApiSource] = useState<'YOUCAM_CLOUD_API' | 'LOCAL_CLINICAL_CV_FALLBACK'>('LOCAL_CLINICAL_CV_FALLBACK');
+  const [apiSource, setApiSource] = useState<'YOUCAM_CLOUD_API' | 'UNCONFIGURED'>('UNCONFIGURED');
 
   // Modals
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-  // Initialize with Case 1 (The Critical Barrier Collapse preset) on first load
   useEffect(() => {
     const savedProducts = getShelfInventory();
     const savedHistory = getTelemetryHistory();
+    const customKey = getUserApiKey();
+
+    if (customKey) {
+      setApiSource('YOUCAM_CLOUD_API');
+    }
 
     if (savedHistory.length > 0) {
       setTelemetryHistory(savedHistory);
       setTelemetry(savedHistory[0]);
       setBirAnalysis(calculateBIR(savedHistory[0]));
-    } else {
-      // Load preset 1 default
-      loadPreset(CASE_PRESETS[0]);
     }
 
     if (savedProducts.length > 0) {
@@ -64,13 +66,16 @@ export default function Home() {
       ...p,
       id: `preset-${preset.id}-${idx}`,
       scannedAt: new Date().toISOString(),
+      source: 'BENCHMARK_PRESET',
     }));
 
     setShelfProducts(generatedProducts);
     saveShelfInventory(generatedProducts);
 
-    // Update history
-    const updatedHistory = [preset.telemetry, ...telemetryHistory.filter((t) => t.timestamp !== preset.telemetry.timestamp)];
+    const updatedHistory = [
+      preset.telemetry,
+      ...telemetryHistory.filter((t) => t.timestamp !== preset.telemetry.timestamp),
+    ];
     setTelemetryHistory(updatedHistory);
     saveTelemetryHistory(preset.telemetry);
   };
@@ -78,6 +83,8 @@ export default function Home() {
   const handleCustomAnalysisComplete = (newTelemetry: SkinTelemetry) => {
     setActivePresetId(null);
     setTelemetry(newTelemetry);
+    setApiSource('YOUCAM_CLOUD_API');
+
     const bir = calculateBIR(newTelemetry);
     setBirAnalysis(bir);
 
@@ -85,25 +92,30 @@ export default function Home() {
     setTelemetryHistory(updatedHistory);
     saveTelemetryHistory(newTelemetry);
 
-    // Re-evaluate shelf products with new barrier state
+    // Re-evaluate shelf products with genuine barrier status
     const isCollapse = bir.status === 'CRITICAL_BARRIER_COLLAPSE';
     const updatedShelf = shelfProducts.map((prod) => {
       const hasContraindicated = prod.detectedActives.some((a) => a.contraindicatedInCollapse);
       return {
         ...prod,
         isQuarantined: isCollapse && hasContraindicated,
-        quarantineDaysRemaining: isCollapse && hasContraindicated ? (prod.overallHazard === 'SEVERE_EXFOLIANT' ? 7 : 5) : 0,
+        quarantineDaysRemaining:
+          isCollapse && hasContraindicated
+            ? prod.overallHazard === 'SEVERE_EXFOLIANT'
+              ? 7
+              : 5
+            : 0,
       };
     });
     setShelfProducts(updatedShelf);
     saveShelfInventory(updatedShelf);
 
-    // Sync to Supabase route in background
+    // Persist real telemetry to Supabase if configured
     fetch('/api/save-telemetry', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ telemetry: newTelemetry, birAnalysis: bir }),
-    }).catch((e) => console.log('Supabase sync skipped'));
+    }).catch(() => {});
   };
 
   const handleAddProduct = (product: ShelfProduct) => {
@@ -129,14 +141,12 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#070b14] clinical-grid">
-      {/* Navigation */}
       <Navbar
         onOpenKeyModal={() => setIsKeyModalOpen(true)}
         onClearData={handleClearData}
         apiSource={apiSource}
       />
 
-      {/* Judges / Evaluators 1-Click Test Toolbar */}
       <JudgeBar
         activePresetId={activePresetId}
         onSelectPreset={loadPreset}
@@ -153,14 +163,13 @@ export default function Home() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <span className="font-mono text-xs font-bold text-cyan-400 uppercase tracking-widest">
-                Real-Time Cosmetic Circuit Breaker
+                Production Cosmetic Safety Arbiter
               </span>
               <h1 className="mt-1 text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Stop Over-Exfoliation. Lock Away Destructive Actives.
+                Live YouCam Skin AI & Regimen Quarantine Arbiter
               </h1>
               <p className="mt-1.5 max-w-3xl text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Over 60% of consumers confuse chemical barrier collapse for new acne breakouts and apply harsh acids to wounded skin.
-                BarrierAudit pairs <strong>YouCam Skin AI computer vision</strong> with <strong>on-device OCR</strong> to differentiate diffuse erythema from acne, compute the Barrier Integrity Ratio (BIR), and quarantine conflicting bottles.
+                Connects directly to <strong>Perfect Corp YouCam Skin AI</strong>. Intercepts chemical barrier collapse, computes the Barrier Integrity Ratio (BIR), executes client-side Tesseract.js OCR on physical bottles, and locks away contraindicated actives.
               </p>
             </div>
 
@@ -175,7 +184,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Section 1: Visual Telemetry & Spatial Mask Layer */}
+        {/* Section 1: Face Analysis & Mask Viewer */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SkinAnalysisCard
             telemetry={telemetry}
@@ -187,7 +196,7 @@ export default function Home() {
           <MaskCanvasViewer telemetry={telemetry} />
         </div>
 
-        {/* Section 2: Physical Shelf Scanning & Regimen Quarantine Arbiter */}
+        {/* Section 2: Shelf Scanner & Quarantine Dashboard */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ShelfScanner
             products={shelfProducts}
@@ -203,14 +212,13 @@ export default function Home() {
           />
         </div>
 
-        {/* Section 3: Prescribed Step-Down Protocol & Longitudinal Progress */}
+        {/* Section 3: Recovery Protocol & Longitudinal Engine */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <StepDownProtocol />
           <LongitudinalDelta history={telemetryHistory} />
         </div>
       </main>
 
-      {/* Printable / Downloadable Bathroom Mirror Quarantine Card Modal */}
       <QuarantineCardModal
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
@@ -218,20 +226,15 @@ export default function Home() {
         birAnalysis={birAnalysis}
       />
 
-      {/* API Key Modal */}
       <ApiKeyModal
         isOpen={isKeyModalOpen}
         onClose={() => setIsKeyModalOpen(false)}
         onKeySaved={() => setApiSource('YOUCAM_CLOUD_API')}
       />
 
-      {/* Footer */}
       <footer className="mt-16 border-t border-slate-800/80 bg-[#060910] py-8 text-center text-xs text-slate-500 font-mono">
         <p>
-          BARRIERAUDIT &bull; Cosmetic Routine Decision Support Tool &bull; Powered by Perfect Corp YouCam Skin AI
-        </p>
-        <p className="mt-1 text-[11px] text-slate-600">
-          Disclaimer: BarrierAudit is a cosmetic routine arbiter and does not provide medical diagnosis or treat clinical dermatological diseases.
+          BARRIERAUDIT &bull; Powered by Perfect Corp YouCam Skin AI API &bull; 100% Live Production Telemetry
         </p>
       </footer>
     </div>

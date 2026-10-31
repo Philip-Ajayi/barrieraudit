@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, AlertOctagon, CheckCircle2, Activity, Sparkles, Loader2 } from 'lucide-react';
+import { Camera, Upload, AlertOctagon, Activity, Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { SkinTelemetry, BIRAnalysis } from '@/lib/types';
 import { analyzeSkinPhoto } from '@/lib/youcam-client';
 
@@ -26,7 +26,6 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // File Upload Handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -44,7 +43,6 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Start Live Webcam
   const startCamera = async () => {
     setErrorMessage(null);
     try {
@@ -57,12 +55,11 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
         videoRef.current.play();
       }
       setCameraActive(true);
-    } catch (err: any) {
-      setErrorMessage('Could not access camera. Please check browser permissions or upload a photo.');
+    } catch {
+      setErrorMessage('Could not access camera. Please check browser permissions or upload a selfie file.');
     }
   };
 
-  // Capture Snapshot from Webcam
   const captureSnapshot = () => {
     if (!videoRef.current) return;
     const canvas = document.createElement('canvas');
@@ -73,13 +70,7 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
     const base64 = canvas.toDataURL('image/jpeg', 0.92);
 
-    // Stop camera stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    setCameraActive(false);
-
+    cancelCamera();
     processImage(base64);
   };
 
@@ -91,7 +82,6 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
     setCameraActive(false);
   };
 
-  // Run YouCam Telemetry Call
   const processImage = async (base64: string) => {
     setIsLoading(true);
     setErrorMessage(null);
@@ -99,7 +89,7 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
       const res = await analyzeSkinPhoto(base64);
       onAnalysisComplete(res.telemetry);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Analysis failed. Please try another image.');
+      setErrorMessage(err.message || 'YouCam Skin AI task failed. Please verify API Key or image quality.');
     } finally {
       setIsLoading(false);
     }
@@ -109,12 +99,20 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
     <div className="rounded-2xl border border-slate-800 bg-surface-card/70 p-5 backdrop-blur-sm">
       <div className="flex items-center justify-between pb-4 border-b border-slate-800">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center space-x-2">
-            <Activity className="h-5 w-5 text-cyan-400" />
-            <span>Visual Skin Telemetry (YouCam Skin AI)</span>
-          </h2>
-          <p className="text-xs text-slate-400">
-            Multi-spectral spatial scanning for erythema, moisture deficit, roughness & acne
+          <div className="flex items-center space-x-2">
+            <h2 className="text-base font-bold text-white flex items-center space-x-2">
+              <Activity className="h-5 w-5 text-cyan-400" />
+              <span>Visual Skin Telemetry</span>
+            </h2>
+            {telemetry?.isLiveProduction && (
+              <span className="flex items-center space-x-1 rounded bg-emerald-950/80 border border-emerald-500/50 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-300">
+                <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                <span>LIVE YOUCAM OUTPUT</span>
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Perfect Corp YouCam Skin AI multi-spectral spatial scanning
           </p>
         </div>
 
@@ -152,7 +150,7 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
                 onClick={captureSnapshot}
                 className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500"
               >
-                Take Snapshot
+                Capture Face
               </button>
               <button
                 onClick={cancelCamera}
@@ -166,41 +164,38 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
       </div>
 
       {errorMessage && (
-        <div className="mt-3 rounded-lg border border-red-500/40 bg-red-950/30 p-3 text-xs text-red-300 flex items-center space-x-2">
-          <AlertOctagon className="h-4 w-4 shrink-0" />
-          <span>{errorMessage}</span>
+        <div className="mt-3 rounded-lg border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300 flex items-start space-x-2">
+          <AlertOctagon className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="leading-relaxed">{errorMessage}</div>
         </div>
       )}
 
-      {/* Camera Live Stream */}
+      {/* Live Stream Viewfinder */}
       {cameraActive && (
         <div className="mt-4 relative overflow-hidden rounded-xl border border-cyan-500/40 bg-black">
           <video ref={videoRef} className="w-full max-h-[320px] object-cover" />
           <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-cyan-400/40 m-8 rounded-2xl flex items-center justify-center">
-            <span className="text-xs text-cyan-300 bg-black/60 px-2 py-1 rounded">
-              Align face inside frame
+            <span className="text-xs text-cyan-300 bg-black/70 px-2.5 py-1 rounded">
+              Center face in frame
             </span>
           </div>
         </div>
       )}
 
-      {/* Loading Overlay */}
+      {/* Loading indicator */}
       {isLoading && (
         <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-cyan-500/30 bg-slate-900/80 p-8 text-center">
           <Loader2 className="h-9 w-9 animate-spin text-cyan-400" />
           <p className="mt-3 text-sm font-semibold text-slate-200">
-            Querying YouCam AI Skin Analysis Task...
+            Communicating with YouCam Cloud API...
           </p>
           <p className="text-xs font-mono text-cyan-400/80 mt-1">
-            dst_actions: [&quot;redness&quot;, &quot;moisture&quot;, &quot;texture&quot;, &quot;acne&quot;]
+            Running dst_actions: [&quot;redness&quot;, &quot;moisture&quot;, &quot;texture&quot;, &quot;acne&quot;]
           </p>
-          <div className="mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-slate-800">
-            <div className="h-full w-full animate-scanline bg-gradient-to-r from-cyan-500 to-red-500" />
-          </div>
         </div>
       )}
 
-      {/* Quantitative Telemetry Scores */}
+      {/* Results Scores */}
       {telemetry && !isLoading && (
         <div className="mt-5 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -222,14 +217,14 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
                 />
               </div>
               <span className="mt-1.5 block text-[10px] text-slate-400">
-                {telemetry.redness > 60 ? 'Severe Capillary Flushing' : 'Low Vasodilation'}
+                {telemetry.redness > 50 ? 'Capillary Vasodilation' : 'Low Vasodilation'}
               </span>
             </div>
 
             {/* Moisture */}
             <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3.5 text-center">
               <span className="text-[11px] font-mono uppercase tracking-wider text-cyan-300">
-                Hydration / Moisture
+                Moisture (Hydration)
               </span>
               <div className="mt-1 flex items-baseline justify-center space-x-1">
                 <span className="text-2xl font-black text-cyan-400 font-mono">
@@ -244,14 +239,14 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
                 />
               </div>
               <span className="mt-1.5 block text-[10px] text-slate-400">
-                {telemetry.moisture < 30 ? 'Desiccated Stratum Corneum' : 'Adequate Moisture'}
+                {telemetry.moisture < 30 ? 'Severe Stratum Deficit' : 'Competent Hydration'}
               </span>
             </div>
 
             {/* Texture */}
             <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3.5 text-center">
               <span className="text-[11px] font-mono uppercase tracking-wider text-amber-300">
-                Roughness / Flaking
+                Roughness / Texture
               </span>
               <div className="mt-1 flex items-baseline justify-center space-x-1">
                 <span className="text-2xl font-black text-amber-400 font-mono">
@@ -266,7 +261,7 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
                 />
               </div>
               <span className="mt-1.5 block text-[10px] text-slate-400">
-                {telemetry.texture > 50 ? 'Micro-fissuring present' : 'Smooth surface'}
+                {telemetry.texture > 50 ? 'Micro-fissuring noted' : 'Smooth surface'}
               </span>
             </div>
 
@@ -288,12 +283,12 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
                 />
               </div>
               <span className="mt-1.5 block text-[10px] text-slate-400">
-                {telemetry.acne > 50 ? 'Active acne vulgaris' : 'Low true acne'}
+                {telemetry.acne > 50 ? 'Active papules present' : 'Low acne burden'}
               </span>
             </div>
           </div>
 
-          {/* BIR Arbiter Computation Bar */}
+          {/* Real BIR Computation Card */}
           {birAnalysis && (
             <div
               className={`rounded-xl border p-4 transition-all ${
@@ -330,14 +325,18 @@ export const SkinAnalysisCard: React.FC<SkinAnalysisCardProps> = ({
                   </p>
                 </div>
 
-                <div className="shrink-0 rounded-lg border border-slate-700 bg-black/40 p-2.5 font-mono text-[11px] text-slate-300">
-                  <div className="text-slate-400 mb-1 font-bold">FORMULA EXECUTION:</div>
+                <div className="shrink-0 rounded-lg border border-slate-700 bg-black/50 p-2.5 font-mono text-[11px] text-slate-300">
+                  <div className="text-slate-400 mb-1 font-bold">MATHEMATICAL PROOF:</div>
                   <div>
-                    BIR = {birAnalysis.formulaEvidence.moistureVal} / ({birAnalysis.formulaEvidence.rednessDenominator} * {birAnalysis.formulaEvidence.textureMultiplier})
+                    BIR = {birAnalysis.formulaEvidence.moistureVal} / (
+                    {birAnalysis.formulaEvidence.rednessDenominator} *{' '}
+                    {birAnalysis.formulaEvidence.textureMultiplier})
                   </div>
                   <div className="text-cyan-400 font-bold mt-0.5">
                     = {birAnalysis.birScore}{' '}
-                    {birAnalysis.birScore < 0.6 ? '(Threshold < 0.60 Breach)' : '(Within Safe Tolerance)'}
+                    {birAnalysis.birScore < 0.6
+                      ? '(Critical < 0.60 Breach)'
+                      : '(Safe Tolerance)'}
                   </div>
                 </div>
               </div>
